@@ -1,27 +1,20 @@
 /* ----------------------------------------------------------------------------
-
     (EN) armethyst - A simple ARM Simulator written in C++ for Computer Architecture
     teaching purposes. Free software licensed under the MIT License (see license
     below).
-
     (PT) armethyst - Um simulador ARM simples escrito em C++ para o ensino de
     Arquitetura de Computadores. Software livre licenciado pela MIT License
     (veja a licença, em inglês, abaixo).
-
     (EN) MIT LICENSE:
-
     Copyright 2020 André Vital Saúde
-
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
     in the Software without restriction, including without limitation the rights
     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
     copies of the Software, and to permit persons to whom the Software is
     furnished to do so, subject to the following conditions:
-
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
-
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -29,7 +22,6 @@
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
    ----------------------------------------------------------------------------
 */
 
@@ -117,6 +109,11 @@ int BasicCPU::ID()
 			break;
 		// case TODO
 		// x101 Data Processing -- Register on page C4-278
+		case 0x0A000000:
+		case 0x1A000000:
+			fpOP = false;
+			return decodeDataProcReg();
+			break;
 		default:
 			return 1; // instrução não implementada
 	}
@@ -227,7 +224,73 @@ int BasicCPU::decodeDataProcReg() {
 	//				'add w1, w1, w0'
 	//		que aparece na linha 43 de isummation.S e no endereço 0x68
 	//		de txt_isummation.o.txt.
+	unsigned int n, m, d;
+	int imm6, shifted;
 	
+	/* Add(shifted register) (pp. 688-689)
+		This section describes the encoding of the Add (shifted register)
+		instruction class. The encodings in this section are decoded from
+		Data Processing -- Immediate on page C6-688.
+	*/
+	switch (IR & 0x7F200000)
+	{		
+		//sf = 0 32 bits 
+		case 0x0B000000:	// Add(shifted register) pp. C6-688
+			// shift = '11' undefined
+			shifted = (IR & 0x00C00000) >> 22;
+			if(shifted == 3)	// Undefined
+				return 1;
+			
+			
+			// ler A e B
+			n = (IR & 0x000003E0) >> 5;
+			A = getX(n); // 64-bit variant
+
+			m = (IR & 0x001F0000) >> 16;
+			B = getX(m);
+			
+			//immediate for shift
+			imm6 = (IR & 0x0000FC00) >> 10;
+			
+			switch(shifted){
+				case 0:	// Logical Shift Left 
+					B = B << imm6;
+					break;
+				case 1:	// Logical Shift Right
+					B = B >> imm6;
+					break;
+				case 2: // Arithmetic Shift Right
+					(signed)B;
+					B = B >> imm6;
+					(unsigned)B;
+					break;
+			}
+
+			// registrador destino
+			d = (IR & 0x0000001F);
+			Rd = &(R[d]);
+			
+			// atribuir ALUctrl
+			ALUctrl = ALUctrlFlag::ADD;
+			
+			// atribuir MEMctrl
+			MEMctrl = MEMctrlFlag::MEM_NONE;
+			
+			// atribuir WBctrl
+			WBctrl = WBctrlFlag::RegWrite;
+			
+			// atribuir MemtoReg
+			MemtoReg = false;
+			
+			return 0;
+
+		//sf = 1 64 bits
+		case 0xFFC0000:	// Instruction not implemented
+
+		default:
+			// instrução não implementada
+			return 1;
+	}
 	
 	// instrução não implementada
 	return 1;
@@ -272,6 +335,10 @@ int BasicCPU::EXI()
 	{
 		case ALUctrlFlag::SUB:
 			ALUout = A - B;
+			// ATIVIDADE FUTURA: setar flags NCZF
+			return 0;
+		case ALUctrlFlag::ADD:
+			ALUout = A + B;
 			// ATIVIDADE FUTURA: setar flags NCZF
 			return 0;
 		default:
