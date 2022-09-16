@@ -131,6 +131,10 @@ int BasicCPU::ID()
         // implementar o GRUPO A SEGUIR
         //
         // 101x Loads and Stores on page C4-237
+        case 0x14000000:
+		case 0x16000000:
+			return	decodeBranches();
+			break;
 
         
         // ATIVIDADE FUTURA
@@ -217,6 +221,85 @@ int BasicCPU::decodeDataProcImm() {
  */
 int BasicCPU::decodeBranches() {
     // instrução não implementada
+
+    unsigned int op, n, m, imm9;
+	unsigned int cond;
+	int32_t BW;
+
+	//Unconditional branch (immediate)
+	switch(IR & 0xFFF00000)
+	{	
+        case 0x14000000:
+			// 26-bit signed PC-relative branch offset variant
+			op = (IR & 0x80000000) >> 31;
+			switch(op){
+				case 0:
+					A = PC;
+					B = (IR & 0x03FFFFFF) << 2;
+					break;
+			}
+
+			// atribuir ALUctrl
+			ALUctrl = ALUctrlFlag::ADD;
+			
+			// atribuir MEMctrl
+			MEMctrl = MEMctrlFlag::MEM_NONE;
+			
+			// atribuir WBctrl
+			WBctrl = WBctrlFlag::RegWrite;
+			
+			// atribuir MemtoReg
+			MemtoReg = false;
+
+			return 0;
+
+		case 0x17F00000:
+			// 26-bit signed PC-relative branch offset variant
+			op = (IR & 0x80000000) >> 31;
+			switch(op){
+				case 0:
+					A = PC;
+					BW = (IR & 0x03FFFFFF) << 2;
+					BW = BW | 0xF0000000;
+					B = BW;
+					break;
+			}
+
+			// atribuir ALUctrl
+			ALUctrl = ALUctrlFlag::ADD;
+			
+			// atribuir MEMctrl
+			MEMctrl = MEMctrlFlag::MEM_NONE;
+			
+			// atribuir WBctrl
+			WBctrl = WBctrlFlag::RegWrite;
+			
+			// atribuir MemtoReg
+			MemtoReg = false;
+
+			return 0;
+
+		// C6.2.207 RET page c6-1053
+		case 0xD6500000:
+			B = (IR & 0x0000001F);
+			n = (IR & 0x000003E0) >> 5;
+			A = getX(n);
+
+			// atribuir ALUctrl
+			ALUctrl = ALUctrlFlag::ADD;
+			
+			// atribuir MEMctrl
+			MEMctrl = MEMctrlFlag::MEM_NONE;
+			
+			// atribuir WBctrl
+			WBctrl = WBctrlFlag::RegWrite;
+			
+			// atribuir MemtoReg
+			MemtoReg = false;
+
+			return 0;
+
+	}
     return 1;
 }
 
